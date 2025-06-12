@@ -40,10 +40,8 @@ pub fn prefix_widget(ui: &mut Ui, name: &str, code: &str, selected: bool) -> Res
                         let vis = tui.egui_ui_mut().visuals_mut();
                         vis.widgets.noninteractive.fg_stroke = vis.widgets.active.fg_stroke;
                     }
-                    let labels = [
-                        tui.label(RichText::new(name).size(18.)),
-                        tui.label(RichText::new(code).size(11.)),
-                    ];
+                    tui.label(RichText::new(name).size(18.));
+                    tui.label(RichText::new(code).size(11.));
                 });
             })
             .response
