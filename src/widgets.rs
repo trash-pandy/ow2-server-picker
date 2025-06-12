@@ -23,7 +23,7 @@ pub fn prefix_widget(ui: &mut Ui, name: &str, code: &str, selected: bool) -> Res
             ..Default::default()
         })
         .show(|tui| {
-            tui.filled_button(selected.not().then(|| active_fill), |tui| {
+            tui.selectable(selected, |tui| {
                 tui.style(Style {
                     flex_direction: taffy::FlexDirection::Column,
                     min_size: taffy::Size {
@@ -36,8 +36,14 @@ pub fn prefix_widget(ui: &mut Ui, name: &str, code: &str, selected: bool) -> Res
                     ..Default::default()
                 })
                 .add(|tui| {
-                    tui.label(RichText::new(name).size(18.));
-                    tui.label(RichText::new(code).size(11.));
+                    if selected {
+                        let vis = tui.egui_ui_mut().visuals_mut();
+                        vis.widgets.noninteractive.fg_stroke = vis.widgets.active.fg_stroke;
+                    }
+                    let labels = [
+                        tui.label(RichText::new(name).size(18.)),
+                        tui.label(RichText::new(code).size(11.)),
+                    ];
                 });
             })
             .response
