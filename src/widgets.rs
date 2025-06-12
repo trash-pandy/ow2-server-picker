@@ -1,12 +1,9 @@
-use std::ops::Not;
-
 use eframe::egui::{Response, RichText, Ui};
 use egui_taffy::taffy::prelude::{auto, length, percent};
 use egui_taffy::taffy::{self, Style};
 use egui_taffy::{TuiBuilderLogic, tui};
 
 pub fn prefix_widget(ui: &mut Ui, name: &str, code: &str, selected: bool) -> Response {
-    let active_fill = ui.visuals().extreme_bg_color;
     let button_width = ui.available_width() - ui.spacing().item_spacing.x - 12.;
     tui(ui, ui.id().with(name).with(code))
         .reserve_available_width()
