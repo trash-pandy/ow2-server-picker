@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 #[cfg(target_os = "linux")]
 use ::{anyhow::ensure, clap::Parser, libc::geteuid};
@@ -8,6 +9,7 @@ use eframe::egui::{
     Align, CentralPanel, Layout, RichText, ScrollArea, TopBottomPanel, ViewportBuilder,
     global_theme_preference_switch, vec2,
 };
+use notify_rust::Notification;
 use rfd::AsyncFileDialog;
 
 mod daemon;
@@ -71,6 +73,14 @@ fn ui_main() -> Result<()> {
                 eprintln!("starting daemon");
                 let res = daemon::start(selected, file.path().to_string_lossy().to_string())
                     .context("failed to start daemon");
+                if let Err(e) = res {
+                    err_state.replace(e.to_string());
+                }
+                let res = Notification::new()
+                    .appname("dropship-rs")
+                    .body("If Overwatch is already running, it will need to be restarted for changes to take effect.")
+                    .timeout(Duration::from_secs(8))
+                    .show();
                 if let Err(e) = res {
                     err_state.replace(e.to_string());
                 }
