@@ -20,6 +20,7 @@ use eframe::egui::{
     global_theme_preference_switch, vec2,
 };
 use rfd::AsyncFileDialog;
+use tokio::task::JoinHandle;
 
 #[cfg(target_os = "windows")]
 use crate::fw::ComDrop;
@@ -34,12 +35,14 @@ fn main() -> Result<()> {
     #[cfg(target_os = "linux")]
     if let Ok(cli) = daemon::Cli::try_parse() {
         if cli.kill {
+            ensure!(unsafe { geteuid() == 0 }, "not authorized");
+
             daemon::kill()?;
             return Ok(());
         }
 
         if cli.daemon {
-            ensure!(unsafe { geteuid() == 0 }, "not running as root");
+            ensure!(unsafe { geteuid() == 0 }, "not authorized");
 
             daemon::daemon_main(cli)?;
             return Ok(());
@@ -55,7 +58,7 @@ fn ui_main() -> Result<()> {
         .with_inner_size(vec2(300., 400.))
         .with_min_inner_size(vec2(300., 200.));
 
-    let mut file_pick_task: Option<tokio::task::JoinHandle<Option<rfd::FileHandle>>> = None;
+    let mut file_pick_task: Option<JoinHandle<Option<rfd::FileHandle>>> = None;
 
     let mut prefixes = prefixes::load();
     prefixes.sort_by_key(|v| v.name.clone());
@@ -67,15 +70,20 @@ fn ui_main() -> Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_io()
         .build()?;
+    let mut more_than_once = 0;
+    let mut start_clicked = 0;
     eframe::run_simple_native("OW2 Server Picker", opts, move |ctx, _fr| {
         ctx.style_mut(|style| {
             style.interaction.selectable_labels = false;
         });
-        let file_pick_task = &mut file_pick_task;
 
         if file_pick_task.as_ref().is_some_and(|t| t.is_finished()) {
             let task = file_pick_task.take().unwrap();
             let file = runtime.block_on(task);
+            more_than_once += 1;
+            if more_than_once == 2 {
+                unreachable!("notification path")
+            }
             if let Err(e) = file {
                 err_state.replace(e.to_string());
             } else if let Some(file) = file.unwrap() {
@@ -132,6 +140,9 @@ fn ui_main() -> Result<()> {
                         if ui.small_button("start").clicked() {
                             daemon::kill().context("failed to kill daemon")?;
 
+                            start_clicked += 1;
+                            println!("start was clicked {start_clicked} times");
+
                             if file_pick_task.is_none() {
                                 let ctx = ui.ctx().clone();
                                 let task = runtime.spawn(async move {
@@ -145,6 +156,7 @@ fn ui_main() -> Result<()> {
                                     res
                                 });
                                 file_pick_task.replace(task);
+                                more_than_once = 0;
                             }
                         }
                         if ui.small_button("disable").clicked() {

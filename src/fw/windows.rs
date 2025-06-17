@@ -64,13 +64,13 @@ pub fn stop() -> Result<()> {
 pub struct ComDrop(pub HRESULT);
 impl ComDrop {
     pub fn init() -> ComDrop {
+        eprintln!("starting com");
         unsafe { ComDrop(CoInitializeEx(None, COINIT_APARTMENTTHREADED)) }
     }
 }
 impl Drop for ComDrop {
     fn drop(&mut self) {
-        unsafe {
-            CoUninitialize();
-        }
+        eprintln!("dropping com");
+        unsafe { CoUninitialize() };
     }
 }
