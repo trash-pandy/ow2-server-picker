@@ -16,7 +16,7 @@ pub struct CGroup {
 impl CGroup {
     pub fn new() -> Result<Self> {
         let root_cgroup = create_cgroup()?;
-        let game_cgroup = root_cgroup.join("ow2dropshiprs");
+        let game_cgroup = root_cgroup.join("ow2serverpicker");
         if !fs::exists(&game_cgroup)? {
             fs::create_dir(&game_cgroup)?;
         }

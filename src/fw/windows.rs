@@ -9,7 +9,7 @@ use windows::Win32::System::Com::{
 };
 use windows::core::HRESULT;
 
-const RULE_NAME: &str = "ow2dropshiprs";
+const RULE_NAME: &str = "ow2serverpicker";
 
 pub async fn start(blocks: Vec<IpNetwork>, game_path: String) -> Result<()> {
     unsafe {
@@ -61,9 +61,9 @@ pub fn stop() -> Result<()> {
     Ok(())
 }
 
-struct ComDrop(HRESULT);
+pub struct ComDrop(pub HRESULT);
 impl ComDrop {
-    fn init() -> ComDrop {
+    pub fn init() -> ComDrop {
         unsafe { ComDrop(CoInitializeEx(None, COINIT_APARTMENTTHREADED)) }
     }
 }

@@ -1,16 +1,28 @@
 use std::collections::HashMap;
+#[cfg(target_os = "linux")]
 use std::time::Duration;
 
 #[cfg(target_os = "linux")]
-use ::{anyhow::ensure, clap::Parser, libc::geteuid};
+use ::{anyhow::ensure, clap::Parser, libc::geteuid, notify_rust::Notification};
+#[cfg(target_os = "windows")]
+use ::windows::{
+    Win32::{
+        Foundation::RPC_E_CHANGED_MODE,
+        System::Com::{CLSCTX_INPROC_SERVER, CoCreateInstance},
+        UI::Shell::{IUserNotification, UserNotification},
+    },
+    core::HSTRING,
+};
 use anyhow::{Context, Result, anyhow};
 use eframe::NativeOptions;
 use eframe::egui::{
     Align, CentralPanel, Layout, RichText, ScrollArea, TopBottomPanel, ViewportBuilder,
     global_theme_preference_switch, vec2,
 };
-use notify_rust::Notification;
 use rfd::AsyncFileDialog;
+
+#[cfg(target_os = "windows")]
+use crate::fw::ComDrop;
 
 mod daemon;
 mod fw;
@@ -76,13 +88,38 @@ fn ui_main() -> Result<()> {
                 if let Err(e) = res {
                     err_state.replace(e.to_string());
                 }
-                let res = Notification::new()
-                    .appname("dropship-rs")
-                    .body("If Overwatch is already running, it will need to be restarted for changes to take effect.")
-                    .timeout(Duration::from_secs(8))
-                    .show();
-                if let Err(e) = res {
-                    err_state.replace(e.to_string());
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let res = Notification::new()
+                        .appname("ow2-server-picker")
+                        .auto_icon()
+                        .body("If Overwatch is already running, it will need to be restarted for changes to take effect.")
+                        .timeout(Duration::from_secs(8))
+                        .show();
+                    if let Err(e) = res {
+                        err_state.replace(e.to_string());
+                    }
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    if let Err(e) = notification("If Overwatch is already running, it will need to be restarted for changes to take effect.") {
+                        err_state.replace(e.to_string());
+                    }
+
+                    fn notification(content: impl Into<String>) -> Result<()> {
+                        unsafe {
+                            let com = ComDrop::init();
+                            if com.0 != RPC_E_CHANGED_MODE {
+                                com.0.ok()?;
+                            }
+
+                            let notification: IUserNotification = CoCreateInstance(&UserNotification, None, CLSCTX_INPROC_SERVER)?;
+                            notification.SetBalloonInfo(&HSTRING::from("ow2-server-picker"), &HSTRING::from(content.into()), 0)?;
+                            notification.Show(None, 8000)?;
+                        }
+
+                        Ok(())
+                    }
                 }
             }
         }

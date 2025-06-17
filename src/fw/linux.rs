@@ -57,10 +57,10 @@ fn create_tables_impl(blocks: Vec<IpNetwork>) -> Result<()> {
 fn create_table(blocks: &[IpNetwork]) -> Result<()> {
     let mut batch4 = Batch::new();
     let mut batch6 = Batch::new();
-    let table4 = Table::new(&c"ow2dropshiprs", nftnl::ProtoFamily::Ipv4);
+    let table4 = Table::new(&c"ow2serverpicker", nftnl::ProtoFamily::Ipv4);
     batch4.add(&table4, MsgType::Add);
 
-    let table6 = Table::new(&c"ow2dropshiprs", nftnl::ProtoFamily::Ipv6);
+    let table6 = Table::new(&c"ow2serverpicker", nftnl::ProtoFamily::Ipv6);
     batch6.add(&table6, MsgType::Add);
 
     let mut chain4 = Chain::new(&c"output", &table4);
@@ -125,8 +125,8 @@ fn create_rule<'a>(
 }
 
 pub fn stop() -> Result<()> {
-    delete_table(&c"ow2dropshiprs", nftnl::ProtoFamily::Ipv4)?;
-    delete_table(&c"ow2dropshiprs", nftnl::ProtoFamily::Ipv6)?;
+    delete_table(&c"ow2serverpicker", nftnl::ProtoFamily::Ipv4)?;
+    delete_table(&c"ow2serverpicker", nftnl::ProtoFamily::Ipv6)?;
     Ok(())
 }
 
