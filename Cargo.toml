@@ -1,5 +1,5 @@
 [package]
-name = "dropship-rs"
+name = "ow2-server-picker"
 version = "0.1.0"
 edition = "2024"
 build = "build.rs"
@@ -27,11 +27,11 @@ strum = { version = "0.27.1", features = ["derive"] }
 tokio = { version = "1.45.1", features = ["full"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-libc = "0.2.172"
-mnl = { version = "0.2.2", features = ["mnl-1-0-4"] }
-nftnl = { version = "0.7.0", features = ["nftnl-1-1-2"] }
-nix = { version = "0.30.1", features = ["mount"] }
-caps = "0.5.5"
+libc = "0.2"
+mnl = { version = "0.2", features = ["mnl-1-0-4"] }
+nftnl = { version = "0.7", features = ["nftnl-1-1-2"] }
+nix = { version = "0.30", features = ["mount"] }
+caps = "0.5"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = [
@@ -40,6 +40,8 @@ windows = { version = "0.61", features = [
     "Win32_System_Variant",
     "Win32_UI_Shell",
     "Win32_NetworkManagement_WindowsFirewall",
+    "Data_Xml_Dom",
+    "ApplicationModel",
 ] }
 
 [build-dependencies]
