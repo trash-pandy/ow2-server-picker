@@ -18,5 +18,7 @@ jobs:
     steps:
     - uses: taiki-e/install-action@just
     - uses: actions/checkout@v4
+    - name: Install libmnl-dev
+      run: sudo apt install -y libmnl-dev
     - name: Build
       run: just package
