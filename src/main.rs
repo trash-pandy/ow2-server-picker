@@ -57,7 +57,8 @@ fn ui_main() -> Result<()> {
 
     let mut file_pick_task: Option<tokio::task::JoinHandle<Option<rfd::FileHandle>>> = None;
 
-    let prefixes = prefixes::load();
+    let mut prefixes = prefixes::load();
+    prefixes.sort_by_key(|v| v.name.clone());
     let mut block_selection = prefixes
         .iter()
         .map(|v| (v.key.clone(), false))
