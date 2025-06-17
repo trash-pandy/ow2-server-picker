@@ -26,3 +26,8 @@ jobs:
       run: sudo apt install -y libnftnl-dev
     - name: Build
       run: just package
+    - uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          target/production/ow2-server-picker*
+          !target/production/*.d
