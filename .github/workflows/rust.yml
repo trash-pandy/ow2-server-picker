@@ -1,0 +1,23 @@
+name: Rust
+
+on:
+  push:
+    tags:
+      - v*
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+    - uses: taiki-e/install-action@just
+    - uses: actions/checkout@v4
+    - name: Build
+      run: just package
