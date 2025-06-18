@@ -66,7 +66,7 @@ fn ui_main() -> Result<()> {
         .iter()
         .map(|v| (v.key.clone(), false))
         .collect::<HashMap<_, _>>();
-    let mut err_state = None;
+    let (update_err, read_err) = tokio::sync::watch::channel(None);
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_io()
         .build()?;
@@ -85,7 +85,7 @@ fn ui_main() -> Result<()> {
                 unreachable!("notification path")
             }
             if let Err(e) = file {
-                err_state.replace(e.to_string());
+                update_err.send(Some(e.to_string())).ok();
             } else if let Some(file) = file.unwrap() {
                 let selected = block_selection
                     .iter()
@@ -95,9 +95,9 @@ fn ui_main() -> Result<()> {
                 let res = daemon::start(selected, file.path().to_string_lossy().to_string())
                     .context("failed to start daemon");
                 if let Err(e) = res {
-                    err_state.replace(e.to_string());
+                    update_err.send(Some(e.to_string())).ok();
                 }
-                #[cfg(not(target_os = "windows"))]
+                #[cfg(target_os = "linux")]
                 {
                     let res = Notification::new()
                         .appname("ow2-server-picker")
@@ -106,29 +106,31 @@ fn ui_main() -> Result<()> {
                         .timeout(Duration::from_secs(8))
                         .show();
                     if let Err(e) = res {
-                        err_state.replace(e.to_string());
+                        update_err.send(Some(e.to_string()));
                     }
                 }
                 #[cfg(target_os = "windows")]
                 {
-                    if let Err(e) = notification("If Overwatch is already running, it will need to be restarted for changes to take effect.") {
-                        err_state.replace(e.to_string());
-                    }
-
-                    fn notification(content: impl Into<String>) -> Result<()> {
-                        unsafe {
-                            let com = ComDrop::init();
-                            if com.0 != RPC_E_CHANGED_MODE {
-                                com.0.ok()?;
-                            }
-
-                            let notification: IUserNotification = CoCreateInstance(&UserNotification, None, CLSCTX_INPROC_SERVER)?;
-                            notification.SetBalloonInfo(&HSTRING::from("ow2-server-picker"), &HSTRING::from(content.into()), 0)?;
-                            notification.Show(None, 8000)?;
+                    let update_err = update_err.clone();
+                    runtime.spawn(async move {
+                        if let Err(e) = notification("If Overwatch is already running, it will need to be restarted for changes to take effect.") {
+                            update_err.send(Some(e.to_string())).ok();
                         }
 
-                        Ok(())
-                    }
+                        fn notification(content: impl Into<String>) -> Result<()> {
+                            unsafe {
+                                let com = ComDrop::init();
+                                if com.0 != RPC_E_CHANGED_MODE {
+                                    com.0.ok()?;
+                                }
+                                let notification: IUserNotification = CoCreateInstance(&UserNotification, None, CLSCTX_INPROC_SERVER)?;
+                                notification.SetBalloonInfo(&HSTRING::from("ow2-server-picker"), &HSTRING::from(content.into()), 0)?;
+                                notification.SetBalloonRetry(8000, 0, 0)?;
+                                notification.Show(None, 8000)?;
+                            }
+                            Ok(())
+                        }
+                    });
                 }
             }
         }
@@ -169,14 +171,14 @@ fn ui_main() -> Result<()> {
 
                 if let Err(e) = result {
                     eprintln!("{e:#?}");
-                    err_state.replace(e.to_string());
+                    update_err.send(Some(e.to_string())).ok();
                 }
             });
         });
         CentralPanel::default().show(ctx, |ui| {
             ui.label("select desired matchmaking regions");
-            if let Some(err_state) = &err_state {
-                ui.label(RichText::new(err_state).color(ui.visuals().warn_fg_color));
+            if let Some(msg) = &*read_err.borrow() {
+                ui.label(RichText::new(msg).color(ui.visuals().warn_fg_color));
             }
             ui.separator();
             ScrollArea::vertical().show(ui, |ui| {
