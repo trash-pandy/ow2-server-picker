@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 use std::ffi::{CStr, c_int};
 use std::fs;
+use std::io::Read;
+use std::os::linux::net::SocketAddrExt;
+use std::os::unix::net::{SocketAddr, UnixListener};
 use std::time::Duration;
 
 use anyhow::Result;
@@ -12,14 +15,45 @@ use nftnl::*;
 
 mod cgroup;
 use cgroup::CGroup;
+use tokio::sync::watch;
+
+pub const SOCKET_NAME: &str = "ow2serverpicker";
 
 pub async fn start(blocks: Vec<IpNetwork>, game_path: String) -> Result<()> {
     create_tables_impl(blocks)?;
 
     let cgroup = CGroup::new()?;
     let mut pids = HashSet::new();
+    let (update_killed, killed) = watch::channel(false);
+    let runtime = tokio::runtime::Handle::current();
+
+    let handle: tokio::task::JoinHandle<Result<()>> = runtime.spawn(async move {
+        let addr = SocketAddr::from_abstract_name(SOCKET_NAME)?;
+        let listener = UnixListener::bind_addr(&addr)?;
+        let (mut conn, _) = listener.accept()?;
+
+        const MSG: &[u8] = "kill".as_bytes();
+        let mut buf = [0u8; MSG.len()];
+        conn.read_exact(&mut buf)?;
+
+        if buf == MSG {
+            update_killed.send_replace(true);
+        }
+
+        Ok(())
+    });
+
     loop {
         tokio::time::sleep(Duration::from_millis(1000)).await;
+
+        if handle.is_finished() {
+            eprintln!("{:#?}", handle.await);
+            return Ok(());
+        }
+
+        if *killed.borrow() {
+            break;
+        }
 
         let Ok(proc_dirs) = fs::read_dir("/proc") else {
             continue;
@@ -43,6 +77,11 @@ pub async fn start(blocks: Vec<IpNetwork>, game_path: String) -> Result<()> {
             }
         }
     }
+
+    handle.abort();
+    handle.await.ok();
+
+    Ok(())
 }
 
 fn create_tables_impl(blocks: Vec<IpNetwork>) -> Result<()> {

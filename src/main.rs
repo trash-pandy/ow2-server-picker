@@ -35,9 +35,7 @@ fn main() -> Result<()> {
     #[cfg(target_os = "linux")]
     if let Ok(cli) = daemon::Cli::try_parse() {
         if cli.kill {
-            ensure!(unsafe { geteuid() == 0 }, "not authorized");
-
-            daemon::kill()?;
+            daemon::kill().ok();
             return Ok(());
         }
 
@@ -106,7 +104,7 @@ fn ui_main() -> Result<()> {
                         .timeout(Duration::from_secs(8))
                         .show();
                     if let Err(e) = res {
-                        update_err.send(Some(e.to_string()));
+                        update_err.send(Some(e.to_string())).ok();
                     }
                 }
                 #[cfg(target_os = "windows")]
@@ -140,7 +138,9 @@ fn ui_main() -> Result<()> {
                 let result = ui
                     .with_layout(Layout::right_to_left(Align::Center), |ui| -> Result<()> {
                         if ui.small_button("start").clicked() {
-                            daemon::kill().context("failed to kill daemon")?;
+                            if let Err(e) = daemon::kill() {
+                                eprintln!("{e:#?}");
+                            }
 
                             start_clicked += 1;
                             println!("start was clicked {start_clicked} times");
@@ -162,7 +162,9 @@ fn ui_main() -> Result<()> {
                             }
                         }
                         if ui.small_button("disable").clicked() {
-                            daemon::kill().context("failed to kill daemon")?;
+                            if let Err(e) = daemon::kill() {
+                                eprintln!("{e:#?}");
+                            }
                         }
 
                         Ok(())
