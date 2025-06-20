@@ -7,16 +7,12 @@ use windows::Win32::System::Com::{
     CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx,
     CoUninitialize,
 };
-use windows::core::HRESULT;
 
 const RULE_NAME: &str = "ow2serverpicker";
 
 pub async fn start(blocks: Vec<IpNetwork>, game_path: String) -> Result<()> {
     unsafe {
-        let com = ComDrop::init();
-        if com.0 != RPC_E_CHANGED_MODE {
-            com.0.ok()?;
-        }
+        let _com = Com::init()?;
 
         let fwpol: INetFwPolicy2 = CoCreateInstance(&NetFwPolicy2, None, CLSCTX_INPROC_SERVER)?;
 
@@ -47,10 +43,7 @@ pub async fn start(blocks: Vec<IpNetwork>, game_path: String) -> Result<()> {
 
 pub fn stop() -> Result<()> {
     unsafe {
-        let com = ComDrop::init();
-        if com.0 != RPC_E_CHANGED_MODE {
-            com.0.ok()?;
-        }
+        let _com = Com::init();
 
         let fwpol: INetFwPolicy2 = CoCreateInstance(&NetFwPolicy2, None, CLSCTX_INPROC_SERVER)?;
         let rules = fwpol.Rules()?;
@@ -61,16 +54,18 @@ pub fn stop() -> Result<()> {
     Ok(())
 }
 
-pub struct ComDrop(pub HRESULT);
-impl ComDrop {
-    pub fn init() -> ComDrop {
-        eprintln!("starting com");
-        unsafe { ComDrop(CoInitializeEx(None, COINIT_APARTMENTTHREADED)) }
+pub struct Com(());
+impl Com {
+    pub fn init() -> Result<Com> {
+        let res = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
+        if res != RPC_E_CHANGED_MODE {
+            res.ok()?;
+        }
+        Ok(Com(()))
     }
 }
-impl Drop for ComDrop {
+impl Drop for Com {
     fn drop(&mut self) {
-        eprintln!("dropping com");
         unsafe { CoUninitialize() };
     }
 }
