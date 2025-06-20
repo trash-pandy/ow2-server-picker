@@ -190,16 +190,19 @@ fn ui_main() -> Result<()> {
                 }
             });
         });
-        let mut clear_err = false;
+
+        let mut clear_error = false;
+
         if let Some(msg) = &*read_err.borrow() {
             Modal::new("error".into()).show(ctx, |ui| {
                 ui.label(RichText::new(msg).color(ui.visuals().warn_fg_color));
                 if ui.button("close").clicked() {
-                    clear_err = true;
+                    clear_error = true;
                 }
             });
         }
-        if clear_err {
+
+        if clear_error {
             update_err.send(None).ok();
         }
     })
