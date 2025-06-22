@@ -51,7 +51,7 @@ fn ui_main() -> Result<()> {
 
     let mut prefixes = prefixes::load();
     prefixes.sort_by_key(|v| v.name.clone());
-    let mut block_selection = prefixes
+    let mut server_selections = prefixes
         .iter()
         .map(|v| (v.key.clone(), false))
         .collect::<HashMap<_, _>>();
@@ -85,9 +85,9 @@ fn ui_main() -> Result<()> {
                 let result = ui
                     .with_layout(Layout::right_to_left(Align::Center), |ui| -> Result<()> {
                         let has_file = picked_file.is_some();
-                        let has_region = block_selection.iter().any(|(_, &v)| v);
+                        let any_selected = server_selections.iter().any(|(_, &selected)| selected);
                         let start_clicked = ui.small_button("enable").clicked();
-                        if start_clicked && !has_region {
+                        if start_clicked && !any_selected {
                             update_modal
                                 .send(Some(ModalDisplay {
                                     level: ModalLevel::Error,
@@ -96,17 +96,17 @@ fn ui_main() -> Result<()> {
                                 }))
                                 .ok();
                         }
-                        if start_clicked && has_file && has_region {
+                        if start_clicked && has_file && any_selected {
                             if let Err(e) = daemon::kill() {
                                 eprintln!("{e:#?}");
                             }
 
-                            let selected = block_selection
+                            let blocked_servers = server_selections
                                 .iter()
-                                .filter_map(|(prefix, sel)| sel.then(|| prefix.clone()));
+                                .filter_map(|(key, selected)| (!selected).then(|| key.clone()));
 
                             let res = daemon::start(
-                                selected,
+                                blocked_servers,
                                 picked_file
                                     .clone()
                                     .unwrap()
@@ -187,11 +187,11 @@ fn ui_main() -> Result<()> {
                         ui,
                         &region.name,
                         &region.code,
-                        block_selection[&region.key],
+                        server_selections[&region.key],
                     )
                     .clicked()
                     {
-                        block_selection
+                        server_selections
                             .entry(region.key.clone())
                             .and_modify(|v| *v = !*v);
                     }
