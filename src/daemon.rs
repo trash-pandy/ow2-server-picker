@@ -55,13 +55,13 @@ pub fn kill() -> Result<()> {
 
 #[cfg(target_os = "windows")]
 #[tokio::main]
-pub async fn start(selected: impl Iterator<Item = String>, game_path: String) -> Result<()> {
-    let selected = selected.collect_vec();
-    let block_list = prefixes::load();
+pub async fn start(block_list: impl Iterator<Item = String>, game_path: String) -> Result<()> {
+    let block_list = block_list.collect_vec();
+    let all_prefixes = prefixes::load();
     fw::start(
-        block_list
+        all_prefixes
             .iter()
-            .filter_map(|v| selected.contains(&v.key).then(|| v.prefixes.clone()))
+            .filter_map(|v| block_list.contains(&v.key).then(|| v.prefixes.clone()))
             .flatten()
             .collect_vec(),
         game_path,
