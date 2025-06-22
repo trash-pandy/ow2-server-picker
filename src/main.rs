@@ -4,11 +4,11 @@ use std::ops::Not;
 #[cfg(target_os = "linux")]
 use ::{anyhow::ensure, clap::Parser, libc::geteuid};
 use anyhow::{Context, Result, anyhow};
-use eframe::NativeOptions;
 use eframe::egui::{
     Align, CentralPanel, Layout, ScrollArea, TopBottomPanel, ViewportBuilder,
     global_theme_preference_switch, vec2,
 };
+use eframe::{NativeOptions, egui};
 use rfd::AsyncFileDialog;
 use tokio::task::JoinHandle;
 
@@ -86,7 +86,9 @@ fn ui_main() -> Result<()> {
                     .with_layout(Layout::right_to_left(Align::Center), |ui| -> Result<()> {
                         let has_file = picked_file.is_some();
                         let any_selected = server_selections.iter().any(|(_, &selected)| selected);
-                        let start_clicked = ui.small_button("enable").clicked();
+                        let start_clicked = ui
+                            .add_enabled(has_file, egui::Button::new("enable").small())
+                            .clicked();
                         if start_clicked && !any_selected {
                             update_modal
                                 .send(Some(ModalDisplay {
@@ -145,9 +147,11 @@ fn ui_main() -> Result<()> {
                                     .ok();
                             }
                         }
-                        if ui.small_button("select game path").clicked()
-                            || start_clicked && picked_file.is_none()
-                        {
+                        let mut select_path = ui.small_button("select game path");
+                        if !has_file {
+                            select_path = select_path.highlight();
+                        }
+                        if select_path.clicked() || start_clicked && picked_file.is_none() {
                             if file_pick_task.is_none() {
                                 let ctx = ui.ctx().clone();
                                 let task = runtime.spawn(async move {
