@@ -1,7 +1,5 @@
 default: (build)
 
-export package_toolchain := "nightly-2025-06-12"
-
 # build for the current detected platform
 build *args:
     cargo build {{args}}
@@ -21,8 +19,7 @@ clean:
 
 # build final packaged versions with size reduction and less debug
 package:
-    rustup component add rust-src --toolchain $package_toolchain
-    cargo +$package_toolchain build \
+    cargo build \
         --profile production \
         -Z build-std=std,panic_abort \
         -Z build-std-features=panic_immediate_abort \
