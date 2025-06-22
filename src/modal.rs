@@ -31,7 +31,6 @@ pub fn show_modal(
     msg: &ModalDisplay,
     mut on_close: impl FnMut(),
 ) -> ModalResponse<()> {
-    println!("font size: {}", get_font_size(ctx, TextStyle::Body));
     Modal::new(format!("modal {}", msg.title).into()).show(ctx, |ui| {
         ui.horizontal(|ui| {
             let font_size = get_font_size(ctx, TextStyle::Body);
@@ -39,7 +38,7 @@ pub fn show_modal(
                 Image::new(match msg.level {
                     ModalLevel::Info => include_image!("../assets/icons/info.svg"),
                     ModalLevel::Warning => include_image!("../assets/icons/triangle-alert.svg"),
-                    ModalLevel::Error => include_image!("../assets/icons/octagon-x.svg"),
+                    ModalLevel::Error => include_image!("../assets/icons/circle-x.svg"),
                     ModalLevel::Success => include_image!("../assets/icons/check.svg"),
                 })
                 .tint(match msg.level {
@@ -58,10 +57,10 @@ pub fn show_modal(
                 .max_height(font_size)
                 .fit_to_fraction([1.0, 1.0].into()),
             );
-            ui.label(RichText::new(msg.title.clone()));
+            ui.label(RichText::new(&msg.title));
         });
         ui.separator();
-        ui.label(RichText::new(msg.content.clone()));
+        ui.label(RichText::new(&msg.content));
         ui.separator();
 
         ui.with_layout(
