@@ -72,14 +72,15 @@ pub async fn start(block_list: impl Iterator<Item = String>, game_path: String) 
 }
 
 #[cfg(target_os = "linux")]
-pub fn start(selected: impl Iterator<Item = String>, game_path: String) -> Result<()> {
+pub fn start(block_list: impl Iterator<Item = String>, game_path: String) -> Result<()> {
+    let block_list = block_list.collect_vec();
     std::process::Command::new("/usr/bin/env")
         .arg("pkexec")
         .arg(std::env::current_exe()?)
         .arg("--daemon")
         .arg("--game-path")
         .arg(game_path)
-        .args(selected)
+        .args(block_list)
         .spawn()?;
 
     Ok(())

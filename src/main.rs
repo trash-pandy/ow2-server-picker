@@ -1,8 +1,8 @@
 use std::collections::HashMap;
+use std::ops::Not;
 
 #[cfg(target_os = "linux")]
 use ::{anyhow::ensure, clap::Parser, libc::geteuid};
-
 use anyhow::{Context, Result, anyhow};
 use eframe::NativeOptions;
 use eframe::egui::{
@@ -103,7 +103,7 @@ fn ui_main() -> Result<()> {
 
                             let blocked_servers = server_selections
                                 .iter()
-                                .filter_map(|(key, selected)| (!selected).then(|| key.clone()));
+                                .filter_map(|(key, selected)| selected.not().then(|| key.clone()));
 
                             let res = daemon::start(
                                 blocked_servers,
