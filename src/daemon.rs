@@ -42,7 +42,7 @@ pub async fn daemon_main(cli: Cli) -> Result<()> {
 
 #[cfg(target_os = "windows")]
 pub fn kill() -> Result<(), KillError> {
-    fw::stop()
+    Ok(fw::stop()?)
 }
 
 #[cfg(target_os = "linux")]
