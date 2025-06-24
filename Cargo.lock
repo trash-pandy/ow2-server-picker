@@ -2529,6 +2529,7 @@ dependencies = [
  "egui_extras",
  "egui_taffy",
  "embed-manifest",
+ "indexmap",
  "ipnetwork",
  "iter_tools",
  "libc",

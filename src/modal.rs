@@ -61,7 +61,7 @@ pub fn show_modal(
         });
         ui.separator();
         ui.label(RichText::new(&msg.content));
-        ui.separator();
+        ui.add_space(3.);
 
         ui.with_layout(
             egui::Layout::top_down_justified(egui::Align::Center),

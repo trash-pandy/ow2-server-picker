@@ -10,6 +10,7 @@ clap = { version = "4.5", features = ["derive"] }
 eframe = { version = "0.31.1", features = ["wayland"] }
 egui_extras = { version = "0.31.1", features = ["svg"] }
 egui_taffy = "0.7.0"
+indexmap = "2.9.0"
 ipnetwork = "0.21.1"
 iter_tools = "0.29.0"
 rfd = { version = "0.15", default-features = false, features = [

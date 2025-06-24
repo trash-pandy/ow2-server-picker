@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::hash::{Hash, Hasher};
 use std::net::IpAddr;
 use std::sync::LazyLock;
 
@@ -140,6 +141,12 @@ pub struct Region {
     pub code: String,
     pub ping: IpAddr,
     pub prefixes: Vec<IpNetwork>,
+}
+
+impl Hash for Region {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
 }
 
 impl Display for Region {
