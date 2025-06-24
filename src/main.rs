@@ -14,6 +14,7 @@ use rfd::AsyncFileDialog;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
+use crate::daemon::KillError;
 use crate::modal::{ModalDisplay, ModalLevel};
 
 mod daemon;
@@ -238,15 +239,21 @@ impl App {
 
     fn stop_daemon(&self, silent: bool) -> Result<()> {
         if let Err(e) = daemon::kill() {
+            if silent && let KillError::Refused = e {
+                return Ok(());
+            }
             self.modal_tx
                 .send(Some(ModalDisplay {
                     level: ModalLevel::Error,
                     title: "Cannot disable blocking".to_string(),
-                    content: format!("Failed to deactivate blocking due to an error:\n\n{}", e),
+                    content: format!(
+                        "Failed to deactivate blocking due to an error:\n{}",
+                        e.to_string()
+                    ),
                 }))
                 .expect("failed to send an error modal");
 
-            return Err(e);
+            return Err(anyhow!("{}", e.to_string()));
         } else if !silent {
             self.modal_tx
                 .send(Some({

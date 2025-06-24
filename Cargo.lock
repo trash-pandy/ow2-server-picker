@@ -2540,6 +2540,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strum 0.27.1",
+ "thiserror 2.0.12",
  "tokio",
  "windows 0.61.3",
 ]

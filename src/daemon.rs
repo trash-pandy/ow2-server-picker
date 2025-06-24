@@ -1,3 +1,7 @@
+use std::io;
+#[cfg(target_os = "linux")]
+use std::result;
+
 use anyhow::Result;
 use iter_tools::Itertools;
 
@@ -37,20 +41,37 @@ pub async fn daemon_main(cli: Cli) -> Result<()> {
 }
 
 #[cfg(target_os = "windows")]
-pub fn kill() -> Result<()> {
+pub fn kill() -> Result<(), KillError> {
     fw::stop()
 }
 
 #[cfg(target_os = "linux")]
-pub fn kill() -> Result<()> {
+pub fn kill() -> result::Result<(), KillError> {
     use std::io::Write;
     use std::os::linux::net::SocketAddrExt;
     use std::os::unix::net::{SocketAddr, UnixStream};
 
-    let mut stream = UnixStream::connect_addr(&SocketAddr::from_abstract_name(fw::SOCKET_NAME)?)?;
+    let mut stream = UnixStream::connect_addr(&SocketAddr::from_abstract_name(fw::SOCKET_NAME)?)
+        .map_err(|e| {
+            if e.kind() == io::ErrorKind::ConnectionRefused {
+                KillError::Refused
+            } else {
+                KillError::IoError(e)
+            }
+        })?;
     stream.write(b"kill")?;
 
     Ok(())
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum KillError {
+    #[error("failed to communicate with the process: {0}")]
+    IoError(#[from] io::Error),
+    #[error("{0}")]
+    Anyhow(#[from] anyhow::Error),
+    #[error("connection was refused, the daemon is likely not running")]
+    Refused,
 }
 
 #[cfg(target_os = "windows")]
