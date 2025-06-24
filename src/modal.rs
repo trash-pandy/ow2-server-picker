@@ -31,7 +31,7 @@ pub fn show_modal(
     msg: &ModalDisplay,
     mut on_close: impl FnMut(),
 ) -> ModalResponse<()> {
-    Modal::new(format!("modal {}", msg.title).into()).show(ctx, |ui| {
+    let res = Modal::new(format!("modal {}", msg.title).into()).show(ctx, |ui| {
         ui.horizontal(|ui| {
             let font_size = get_font_size(ctx, TextStyle::Body);
             ui.add(
@@ -71,5 +71,11 @@ pub fn show_modal(
                 }
             },
         );
-    })
+    });
+
+    if res.backdrop_response.clicked() {
+        on_close();
+    }
+
+    res
 }
