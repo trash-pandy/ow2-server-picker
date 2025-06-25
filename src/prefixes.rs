@@ -10,6 +10,9 @@ use iter_tools::Itertools;
 ///// sourced from https://github.com/stowmyy/dropship/blob/main/dropship/dropship/src/core/Settings.h#L64
 /// find: static const std::string (.*?) \{ (".*?") \};
 /// repl: const $1: &str = $2;
+//////////////
+// put here //
+//////////////
 const GPC_ASIA_SOUTHEAST1: &str = "34.1.128.0/20,34.1.192.0/20,34.2.16.0/20,34.2.128.0/17,34.21.128.0/17,34.87.0.0/17,34.87.128.0/18,34.104.58.0/23,34.104.106.0/23,34.124.42.0/23,34.124.128.0/17,34.126.64.0/18,34.126.128.0/18,34.128.44.0/23,34.128.60.0/23,34.142.128.0/17,34.143.128.0/17,34.152.104.0/23,34.153.40.0/23,34.153.232.0/23,34.157.82.0/23,34.157.88.0/23,34.157.210.0/23,34.177.72.0/23,35.185.176.0/20,35.186.144.0/20,35.187.224.0/19,35.197.128.0/19,35.198.192.0/18,35.213.128.0/18,35.220.24.0/23,35.234.192.0/20,35.240.128.0/17,35.242.24.0/23,35.247.128.0/18,2600:1900:4080::/44";
 const GPC_EUROPE_NORTH1: &str = "34.88.0.0/16,34.104.96.0/21,34.124.32.0/21,35.203.232.0/21,35.217.0.0/18,35.220.26.0/24,35.228.0.0/16,35.242.26.0/24,2600:1900:4150::/44";
 const GPC_SOUTHAMERICA_EAST1: &str = "34.39.128.0/17,34.95.128.0/17,34.104.80.0/21,34.124.16.0/21,34.151.0.0/18,34.151.192.0/18,35.198.0.0/18,35.199.64.0/18,35.215.192.0/18,35.220.40.0/24,35.235.0.0/20,35.242.40.0/24,35.247.192.0/18,2600:1900:40f0::/44";
@@ -17,12 +20,18 @@ const GPC_ASIA_NORTHEAST1: &str = "34.84.0.0/16,34.85.0.0/17,34.104.62.0/23,34.1
 const GPC_ME_CENTRAL2: &str = "34.1.48.0/20,34.152.84.0/23,34.152.102.0/24,34.166.0.0/16,34.177.48.0/23,34.177.70.0/24,2600:1900:5400::/44";
 
 const BLIZZARD_DACOM_KR: &str = "110.45.208.0/24,117.52.6.0/24,117.52.26.0/23,117.52.28.0/23,117.52.33.0/24,117.52.34.0/23,117.52.36.0/23,121.254.137.0/24,121.254.206.0/23,121.254.218.0/24,182.162.31.0/24";
+//////////////
+// put here //
+//////////////
 
 ///// sourced from https://github.com/stowmyy/dropship/blob/main/dropship/dropship/src/core/Settings.h#L87
 /// find: \{ (".*?"), \{ \.block = (".*?") \} \}
 /// repl: ($1, $2)
 static PREFIXES: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| {
     [
+        //////////////
+        // put here //
+        //////////////
         // { "test", { .block = "" }}, // PEERINGDB
 
         /* ord1
@@ -73,6 +82,9 @@ static PREFIXES: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| {
             -
         */
         ("blizzard/ams1", "64.224.26.0/23"),
+        //////////////
+        // put here //
+        //////////////
     ]
     .iter()
     .copied()
@@ -117,8 +129,7 @@ static META: LazyLock<HashMap<&str, (&str, &str, &str)>> = LazyLock::new(|| {
 });
 
 pub fn load() -> Vec<Region> {
-    let mut blocks = vec![];
-    blocks.reserve(PREFIXES.len());
+    let mut blocks = Vec::with_capacity(PREFIXES.len());
     for &key in PREFIXES.keys() {
         let &prefix = PREFIXES.get(key).unwrap();
         let &(region, code, addr) = META.get(key).unwrap();

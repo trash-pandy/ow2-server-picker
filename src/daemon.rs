@@ -32,8 +32,8 @@ pub async fn daemon_main(cli: Cli) -> Result<()> {
     fw::start(
         prefixes
             .iter()
-            .filter_map(|v| cli.prefixes.contains(&v.key).then(|| v.prefixes.clone()))
-            .flatten()
+            .filter(|v| cli.prefixes.contains(&v.key))
+            .flat_map(|v| v.prefixes.clone())
             .collect_vec(),
         cli.game_path,
     )
@@ -59,7 +59,7 @@ pub fn kill() -> result::Result<(), KillError> {
                 KillError::IoError(e)
             }
         })?;
-    stream.write(b"kill")?;
+    stream.write_all(b"kill")?;
 
     Ok(())
 }

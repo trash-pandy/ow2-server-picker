@@ -40,10 +40,12 @@ fn main() -> Result<()> {
         }
     }
 
-    let mut opts = NativeOptions::default();
-    opts.viewport = ViewportBuilder::default()
-        .with_inner_size(vec2(300., 400.))
-        .with_min_inner_size(vec2(300., 200.));
+    let opts = NativeOptions {
+        viewport: ViewportBuilder::default()
+            .with_inner_size(vec2(300., 400.))
+            .with_min_inner_size(vec2(300., 200.)),
+        ..Default::default()
+    };
     eframe::run_native(
         "ow2 server picker",
         opts,
@@ -139,12 +141,11 @@ impl App {
 
     fn run_exe_selection(&self, start_daemon: bool) {
         let handle = self.runtime.spawn(async move {
-            let res = AsyncFileDialog::new()
+            AsyncFileDialog::new()
                 .set_title("Find your Overwatch installation")
                 .add_filter("Overwatch.exe", &["exe"])
                 .pick_file()
-                .await;
-            res
+                .await
         });
 
         self.file_selection_task_tx
@@ -205,7 +206,8 @@ impl App {
         let blocked_regions = self
             .region_states
             .iter()
-            .filter_map(|(region, selected)| selected.not().then(|| region.key.clone()));
+            .filter(|&(_, selected)| selected.not())
+            .map(|(region, _)| region.key.clone());
 
         let game_exe = self
             .game_exe
@@ -220,8 +222,7 @@ impl App {
                 .send(Some(ModalDisplay {
                     level: ModalLevel::Error,
                     title: "Cannot enable blocking".to_string(),
-                    content: format!("Failed to activate blocking due to an error:\n\n{}", e)
-                        .to_string(),
+                    content: format!("Failed to activate blocking due to an error:\n\n{e}"),
                 }))
                 .expect("failed to send an error modal");
         } else {
@@ -246,10 +247,7 @@ impl App {
                 .send(Some(ModalDisplay {
                     level: ModalLevel::Error,
                     title: "Cannot disable blocking".to_string(),
-                    content: format!(
-                        "Failed to deactivate blocking due to an error:\n{}",
-                        e.to_string()
-                    ),
+                    content: format!("Failed to deactivate blocking due to an error:\n{e}"),
                 }))
                 .expect("failed to send an error modal");
 
