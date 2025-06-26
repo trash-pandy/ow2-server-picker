@@ -64,6 +64,7 @@ pub fn kill() -> result::Result<(), KillError> {
     Ok(())
 }
 
+#[allow(dead_code)]
 #[derive(thiserror::Error, Debug)]
 pub enum KillError {
     #[error("failed to communicate with the process: {0}")]
@@ -82,8 +83,8 @@ pub async fn start(block_list: impl Iterator<Item = String>, game_path: String) 
     fw::start(
         all_prefixes
             .iter()
-            .filter_map(|v| block_list.contains(&v.key).then(|| v.prefixes.clone()))
-            .flatten()
+            .filter(|&v| block_list.contains(&v.key))
+            .flat_map(|v| v.prefixes.clone())
             .collect_vec(),
         game_path,
     )

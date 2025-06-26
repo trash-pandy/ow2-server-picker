@@ -1,5 +1,6 @@
 use eframe::egui::{self, Color32, Image, Modal, ModalResponse, RichText, include_image};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum ModalLevel {
     Error,
