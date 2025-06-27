@@ -16,10 +16,12 @@ use tokio::task::JoinHandle;
 
 use crate::daemon::KillError;
 use crate::modal::{ModalDisplay, ModalLevel};
+use crate::ping::PingReceiver;
 
 mod daemon;
 mod fw;
 mod modal;
+mod ping;
 mod prefixes;
 mod util;
 mod widgets;
@@ -62,12 +64,25 @@ struct FileSelectionTask {
     handle: JoinHandle<Option<rfd::FileHandle>>,
 }
 
+struct RegionEntry {
+    /// The region this
+    region: prefixes::Region,
+
+    /// Current ping to the main server.
+    ping: ping::PingStatus,
+
+    /// Whether the server is selected as one of the preferred.
+    selected: bool,
+}
+
 struct App {
     /// Application's runtime.
     runtime: tokio::runtime::Runtime,
 
     /// Selected regions.
-    region_states: IndexMap<prefixes::Region, bool>,
+    ///
+    /// It is keyed by region's key.
+    region_states: IndexMap<String, RegionEntry>,
 
     /// Game executable selected in file dialog.
     game_exe: Option<rfd::FileHandle>,
@@ -83,6 +98,9 @@ struct App {
 
     /// A sender for the current modal display.
     modal_tx: watch::Sender<Option<ModalDisplay>>,
+
+    /// A receiver of the ping updates.
+    ping_rx: Option<PingReceiver>,
 }
 
 impl App {
@@ -95,24 +113,56 @@ impl App {
 
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_io()
+            .enable_time()
             .build()?;
 
         let region_states = prefixes::load()
-            .iter()
-            .sorted_by_key(|&region| &region.name)
-            .map(|region| (region.clone(), false))
+            .into_iter()
+            .sorted_by_key(|region| region.name.clone())
+            .map(|region| {
+                (
+                    region.key.clone(),
+                    RegionEntry {
+                        region,
+                        ping: ping::PingStatus::Unknown,
+                        selected: false,
+                    },
+                )
+            })
             .collect::<IndexMap<_, _>>();
 
         let (file_selection_task_tx, file_selection_task_rx) =
             watch::channel(Option::<FileSelectionTask>::None);
+
         let (modal_tx, modal_rx) = watch::channel(Option::<ModalDisplay>::None);
 
-        {
+        let ping_rx = ping::setup_pinger(
+            &runtime,
+            region_states
+                .iter()
+                .map(|(key, entry)| (key.clone(), entry.region.ping))
+                .sorted()
+                .collect_vec(),
+        )
+        .inspect_err(|_| {
+            modal_tx
+                .send(Some(ModalDisplay {
+                    level: ModalLevel::Warning,
+                    title: "Pings are unavailable".to_string(),
+                    content: "Your system may not support this feature".to_string(),
+                }))
+                .expect("failed to send an error modal");
+        })
+        .ok();
+
+        runtime.spawn({
             let mut fst_rx = file_selection_task_rx.clone();
             let mut m_rx = modal_rx.clone();
+            let mut p_sub = ping_rx.as_ref().map(|rx| rx.resubscribe());
+
             let ctx = cc.egui_ctx.clone();
 
-            runtime.spawn(async move {
+            async move {
                 loop {
                     tokio::select! {
                         result = fst_rx.changed() => {
@@ -120,13 +170,16 @@ impl App {
                         },
                         result = m_rx.changed() => {
                             if result.is_err() { break }
-                        }
+                        },
+                        result = p_sub.as_mut().unwrap().recv(), if p_sub.is_some() => {
+                            if result.is_err() { break }
+                        },
                     }
 
                     ctx.request_repaint();
                 }
-            });
-        }
+            }
+        });
 
         Ok(Self {
             runtime,
@@ -136,6 +189,7 @@ impl App {
             modal_tx,
             game_exe: None,
             region_states,
+            ping_rx,
         })
     }
 
@@ -184,8 +238,19 @@ impl App {
         }
     }
 
+    fn handle_ping_updates(&mut self) {
+        if let Some(rx) = self.ping_rx.as_mut() {
+            while let Ok(ping::PingUpdate(key, status)) = rx.try_recv() {
+                self.region_states.get_mut(&key).map_or_else(
+                    || panic!("failed to retrieve region {key} for ping update"),
+                    |region| region.ping = status.clone(),
+                );
+            }
+        }
+    }
+
     fn start_daemon(&self) {
-        let any_selected = self.region_states.iter().any(|(_, &selected)| selected);
+        let any_selected = self.region_states.iter().any(|(_, state)| state.selected);
 
         if !any_selected {
             self.modal_tx
@@ -206,8 +271,8 @@ impl App {
         let blocked_regions = self
             .region_states
             .iter()
-            .filter(|&(_, selected)| selected.not())
-            .map(|(region, _)| region.key.clone());
+            .filter(|&(_, entry)| entry.selected.not())
+            .map(|(key, _)| key.clone());
 
         let game_exe = self
             .game_exe
@@ -308,11 +373,17 @@ impl App {
             ui.label("select desired matchmaking regions");
             ui.separator();
             ScrollArea::vertical().show(ui, |ui| {
-                for (region, selected) in self.region_states.iter_mut() {
-                    let widget = widgets::prefix_widget(ui, &region.name, &region.code, *selected);
+                for (_, entry) in self.region_states.iter_mut() {
+                    let widget = widgets::prefix_widget(
+                        ui,
+                        &entry.region.name,
+                        &entry.region.code,
+                        entry.selected,
+                        &entry.ping,
+                    );
 
                     if widget.clicked() {
-                        *selected = !*selected;
+                        entry.selected = !entry.selected;
                     }
                 }
             });
@@ -335,6 +406,7 @@ impl App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         self.handle_file_picker_task();
+        self.handle_ping_updates();
 
         self.render_bottom_bar(ctx);
         self.render_central_panel(ctx);
