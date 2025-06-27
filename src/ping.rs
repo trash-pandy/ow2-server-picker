@@ -18,6 +18,16 @@ pub enum PingStatus {
     Unreachable,
 }
 
+impl PingStatus {
+    pub fn as_millis_or(&self, default: u128) -> u128 {
+        if let PingStatus::Reachable(duration) = &self {
+            duration.as_millis()
+        } else {
+            default
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct PingUpdate(pub String, pub PingStatus);
 
