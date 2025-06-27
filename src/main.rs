@@ -4,8 +4,8 @@ use std::ops::Not;
 use ::{anyhow::ensure, clap::Parser, libc::geteuid};
 use anyhow::{Result, anyhow};
 use eframe::egui::{
-    Align, CentralPanel, Layout, ScrollArea, TopBottomPanel, ViewportBuilder,
-    global_theme_preference_switch, vec2,
+    Align, CentralPanel, ImageButton, Layout, ScrollArea, TopBottomPanel, ViewportBuilder, Widget,
+    global_theme_preference_switch, include_image, vec2,
 };
 use eframe::{NativeOptions, egui};
 use indexmap::IndexMap;
@@ -17,12 +17,14 @@ use tokio::task::JoinHandle;
 use crate::daemon::KillError;
 use crate::modal::{ModalDisplay, ModalLevel};
 use crate::ping::PingReceiver;
+use crate::regions::{RegionEntry, RegionSortBy, RegionSorting};
 
 mod daemon;
 mod fw;
 mod modal;
 mod ping;
 mod prefixes;
+mod regions;
 mod util;
 mod widgets;
 
@@ -64,17 +66,6 @@ struct FileSelectionTask {
     handle: JoinHandle<Option<rfd::FileHandle>>,
 }
 
-struct RegionEntry {
-    /// The region this
-    region: prefixes::Region,
-
-    /// Current ping to the main server.
-    ping: ping::PingStatus,
-
-    /// Whether the server is selected as one of the preferred.
-    selected: bool,
-}
-
 struct App {
     /// Application's runtime.
     runtime: tokio::runtime::Runtime,
@@ -101,6 +92,9 @@ struct App {
 
     /// A receiver of the ping updates.
     ping_rx: Option<PingReceiver>,
+
+    /// Sorting configuration.
+    sort: RegionSorting,
 }
 
 impl App {
@@ -165,12 +159,8 @@ impl App {
             async move {
                 loop {
                     tokio::select! {
-                        result = fst_rx.changed() => {
-                            if result.is_err() { break }
-                        },
-                        result = m_rx.changed() => {
-                            if result.is_err() { break }
-                        },
+                        result = fst_rx.changed() => if result.is_err() { break },
+                        result = m_rx.changed() => if result.is_err() { break },
                         result = p_sub.as_mut().unwrap().recv(), if p_sub.is_some() => {
                             if result.is_err() { break }
                         },
@@ -190,6 +180,7 @@ impl App {
             game_exe: None,
             region_states,
             ping_rx,
+            sort: Default::default(),
         })
     }
 
@@ -239,14 +230,28 @@ impl App {
     }
 
     fn handle_ping_updates(&mut self) {
+        let mut had_updates = false;
+
         if let Some(rx) = self.ping_rx.as_mut() {
             while let Ok(ping::PingUpdate(key, status)) = rx.try_recv() {
+                had_updates = true;
+
                 self.region_states.get_mut(&key).map_or_else(
                     || panic!("failed to retrieve region {key} for ping update"),
                     |region| region.ping = status.clone(),
                 );
             }
         }
+
+        if had_updates && self.sort.by == RegionSortBy::Ping {
+            self.apply_sort();
+        }
+    }
+
+    fn apply_sort(&mut self) {
+        let cmp = self.sort.as_cmp();
+
+        self.region_states.sort_by(|_, a, _, b| cmp(a, b));
     }
 
     fn start_daemon(&self) {
@@ -368,10 +373,60 @@ impl App {
         });
     }
 
+    fn on_sort_btn_click(&mut self, shift: bool) {
+        if shift {
+            self.sort.toggle_asc();
+        } else {
+            self.sort.cycle_property();
+        }
+
+        self.apply_sort();
+    }
+
+    fn render_sort_button(&mut self, ui: &mut egui::Ui) {
+        let image = match (self.sort.by, self.sort.asc) {
+            (RegionSortBy::Name, true) => {
+                include_image!("../assets/icons/arrow-down-a-z.svg")
+            }
+            (RegionSortBy::Name, false) => {
+                include_image!("../assets/icons/arrow-up-z-a.svg")
+            }
+            (RegionSortBy::Ping, true) => {
+                include_image!("../assets/icons/arrow-down-0-1.svg")
+            }
+            (RegionSortBy::Ping, false) => {
+                include_image!("../assets/icons/arrow-up-1-0.svg")
+            }
+        };
+
+        let button = ImageButton::new(image)
+            .tint(ui.visuals().text_color())
+            .frame(false)
+            .ui(ui)
+            .on_hover_text(format!(
+                "Sorted by {} ({}).\n\u{2022} Click to sort by {}.\n\u{2022} Right Click or Shift+Click to change ordering.",
+                self.sort.by,
+                self.sort.ordering_name(),
+                self.sort.next_property(),
+            ));
+
+        if button.clicked() || button.secondary_clicked() {
+            self.on_sort_btn_click(button.secondary_clicked() || ui.input(|i| i.modifiers.shift));
+        }
+    }
+
     fn render_central_panel(&mut self, ctx: &egui::Context) {
         CentralPanel::default().show(ctx, |ui| {
-            ui.label("select desired matchmaking regions");
+            ui.horizontal(|ui| {
+                ui.label("Select desired matchmaking regions:");
+
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    self.render_sort_button(ui);
+                });
+            });
+
             ui.separator();
+
             ScrollArea::vertical().show(ui, |ui| {
                 for (_, entry) in self.region_states.iter_mut() {
                     let widget = widgets::prefix_widget(
